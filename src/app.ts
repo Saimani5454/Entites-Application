@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { initializeDatabase } from './database/connection';
 import userRoutes from './routes/userRoutes';
 import clientRoutes from './routes/clientRoutes';
-import userProfileRoutes from './routes/userProfileRoutes';   // ← ADD THIS
+import userProfileRoutes from './routes/userProfileRoutes';
 
 dotenv.config();
 
@@ -17,7 +17,7 @@ app.use(express.json());
 // Routes
 app.use('/api', userRoutes);
 app.use('/api', clientRoutes);
-app.use('/user', userProfileRoutes);   // ← ADD THIS (fixes the 401/404 test failures)
+app.use('/user', userProfileRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Entity Application API is running' });
@@ -26,10 +26,9 @@ app.get('/health', (req, res) => {
 const startServer = async () => {
   try {
     await initializeDatabase();
-    
+
     app.listen(PORT, () => {
       console.log(`✓ Server running on http://localhost:${PORT}`);
-      console.log(`✓ API documentation available at /docs`);
     });
   } catch (error) {
     console.error('✗ Failed to start server:', error);
