@@ -78,7 +78,7 @@ export const dbGet = <T = any>(query: string, params: any[] = []): Promise<T | u
   return new Promise((resolve, reject) => {
     db.get(query, params, (err, row) => {
       if (err) reject(err);
-      else resolve(row);
+      else resolve(row as T | undefined); // ← cast to T | undefined
     });
   });
 };
@@ -87,7 +87,7 @@ export const dbAll = <T = any>(query: string, params: any[] = []): Promise<T[]> 
   return new Promise((resolve, reject) => {
     db.all(query, params, (err, rows) => {
       if (err) reject(err);
-      else resolve(rows);
+      else resolve(rows as T[]); // ← cast to T[]
     });
   });
 };
