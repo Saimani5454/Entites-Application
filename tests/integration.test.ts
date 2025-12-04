@@ -44,7 +44,13 @@ beforeAll(async () => {
     ['TestCorp2', 'Finance', 3000, 500000000]
   );
   
-  // Insert users (initializeDatabase admin already exists)
+  // Ensure admin exists
+  await dbRun(
+    'INSERT OR IGNORE INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+    ['admin', 'admin@example.com', 'admin123', 'ROLE_ADMIN']
+  );
+
+  // Insert regular user
   await dbRun(
     'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
     ['user1', 'user1@example.com', 'user123', 'ROLE_USER']
