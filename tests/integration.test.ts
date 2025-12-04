@@ -272,4 +272,29 @@ describe('API Functional Tests', () => {
         .send({
           name: 'TestClientToUpdate',
           email: 'test@example.com',
-          phone
+          phone: '1234567890',
+          userId: adminId,
+          companyId: 1
+        });
+
+      const clientId = createResponse.body.client.id;
+
+      const updateResponse = await request(app)
+        .patch(`/api/clients/${clientId}`)
+        .set('x-user', JSON.stringify({
+          id: adminId,
+          username: 'admin',
+          email: 'admin@example.com',
+          role: 'ROLE_ADMIN'
+        }))
+        .send({
+          name: 'UpdatedClientName',
+          phone: '0987654321'
+        });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body.client.name).toBe('UpdatedClientName');
+      expect(updateResponse.body.client.phone).toBe('0987654321');
+    });
+  });
+});
