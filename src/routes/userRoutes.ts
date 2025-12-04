@@ -1,26 +1,31 @@
-import { Router } from 'express';
-import { listUsers, replaceUser, getUserProfile } from '../controllers/userController';
-import { authenticateUser, requireAuth } from '../middleware/auth';
+import { Router } from "express";
+import { getRepository } from "typeorm";
+import { User } from "../entities/User";
 
 const router = Router();
 
-/**
- * GET /api/users
- * List all users with optional username filter
- * Query: ?username=search_term
- */
-router.get('/users', listUsers);
+// GET /user/profile
+router.get("/profile", async (req, res) => {
+  const email = req.query.email as string;
 
-/**
- * PUT /api/users/:id
- * Replace entire user object
- */
-router.put('/users/:id', replaceUser);
+  // No auth?
+  if (!email) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
 
-/**
- * GET /user/profile
- * Get authenticated user's profile with email validation
- */
-router.get('/user/profile', authenticateUser, requireAuth, getUserProfile);
+  // Validate email format
+  if (!email.includes("@")) {
+    return res.status(400).json({ message: "Invalid email format" });
+  }
+
+  const repo = getRepository(User);
+  const user = await repo.findOne({ where: { email } });
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  return res.status(200).json(user);
+});
 
 export default router;
