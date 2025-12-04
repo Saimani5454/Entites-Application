@@ -1,11 +1,16 @@
 import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import { open, Database } from 'sqlite';
 import path from 'path';
 
 const DB_PATH = path.join(__dirname, '../data/app.db');
-export let db: sqlite3.Database;
 
-export const initializeDatabase = async () => {
+// Typed database reference
+export let db: Database<sqlite3.Database, sqlite3.Statement>;
+
+/**
+ * Initialize SQLite database and tables
+ */
+export const initializeDatabase = async (): Promise<void> => {
   db = await open({
     filename: DB_PATH,
     driver: sqlite3.Database
@@ -57,6 +62,20 @@ export const initializeDatabase = async () => {
   `);
 };
 
-export const dbAll = (query: string, params: any[] = []) => db.all(query, params);
-export const dbGet = (query: string, params: any[] = []) => db.get(query, params);
-export const dbRun = (query: string, params: any[] = []) => db.run(query, params);
+/**
+ * Typed query helpers
+ */
+export const dbAll = async <T = any>(query: string, params: any[] = []): Promise<T[]> => {
+  if (!db) throw new Error('Database not initialized');
+  return db.all<T[]>(query, params);
+};
+
+export const dbGet = async <T = any>(query: string, params: any[] = []): Promise<T | undefined> => {
+  if (!db) throw new Error('Database not initialized');
+  return db.get<T>(query, params);
+};
+
+export const dbRun = async (query: string, params: any[] = []): Promise<void> => {
+  if (!db) throw new Error('Database not initialized');
+  await db.run(query, params);
+};
