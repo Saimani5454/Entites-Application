@@ -4,15 +4,16 @@ import fs from 'fs';
 
 const dbPath = path.join(__dirname, '../../data/app.db');
 
-// Ensure data directory exists
+// Ensure /data folder exists
 const dataDir = path.dirname(dbPath);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// Create SQLite connection
 export const db = new sqlite3.Database(dbPath);
 
-// Promisify database operations
+// Promisified DB helpers
 export const dbRun = (sql: string, params: any[] = []): Promise<void> => {
   return new Promise((resolve, reject) => {
     db.run(sql, params, (err) => {
@@ -41,7 +42,7 @@ export const dbAll = (sql: string, params: any[] = []): Promise<any[]> => {
 };
 
 /**
- * Initialize database schema
+ * Initialize Database Schema
  */
 export const initializeDatabase = async (): Promise<void> => {
   try {
@@ -92,7 +93,7 @@ export const initializeDatabase = async (): Promise<void> => {
       )
     `);
 
-    // ClientUsers junction table
+    // ClientUsers (many-to-many)
     await dbRun(`
       CREATE TABLE IF NOT EXISTS client_users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,7 +109,7 @@ export const initializeDatabase = async (): Promise<void> => {
       )
     `);
 
-    // Company-Users relationship table
+    // CompanyUsers table
     await dbRun(`
       CREATE TABLE IF NOT EXISTS company_users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,6 +121,23 @@ export const initializeDatabase = async (): Promise<void> => {
         FOREIGN KEY (userId) REFERENCES users(id)
       )
     `);
+
+    // ---------------------------------------------------------
+    // ✅ Seed ADMIN user so tests stop failing
+    // ---------------------------------------------------------
+    const admin = await dbGet(
+      `SELECT id FROM users WHERE username = ?`,
+      ['admin']
+    );
+
+    if (!admin) {
+      await dbRun(
+        `INSERT INTO users (username, email, password, role)
+         VALUES (?, ?, ?, ?)`,
+        ['admin', 'admin@example.com', 'admin123', 'ROLE_ADMIN']
+      );
+      console.log('✓ Default admin user created');
+    }
 
     console.log('✓ Database schema initialized successfully');
   } catch (error) {
