@@ -1,27 +1,27 @@
-import express from 'express';
+import { Router } from 'express';
 import { dbAll, dbGet, dbRun } from '../database/connection';
+import { requireAuth } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
 
 /**
  * GET /api/users
- * Optional: search by username
+ * Optional query: ?username=
  */
 router.get('/users', async (req, res) => {
   try {
     const { username } = req.query;
+    let query = 'SELECT id, username, email, role, createdAt FROM users WHERE deletedAt IS NULL';
+    const params: any[] = [];
 
-    let users;
     if (username) {
-      users = await dbAll(
-        `SELECT * FROM users WHERE username LIKE ?`,
-        [`%${username}%`]
-      );
-    } else {
-      users = await dbAll(`SELECT * FROM users`);
+      query += ' AND username LIKE ?';
+      params.push(`%${username}%`);
     }
 
-    res.json(users || []);
+    query += ' ORDER BY createdAt DESC';
+    const users = await dbAll(query, params);
+    res.json(users);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -29,25 +29,18 @@ router.get('/users', async (req, res) => {
 });
 
 /**
- * GET /user/profile
- * Must validate email format
+ * GET /api/user/profile
+ * Requires authentication
  */
-router.get('/user/profile', async (req, res) => {
+router.get('/user/profile', requireAuth, async (req, res) => {
   try {
-    // Test environment assumes user with id=1 exists
-    const user = await dbGet(`SELECT * FROM users WHERE id = 1`);
+    const user = await dbGet('SELECT id, username, email, role, createdAt, updatedAt FROM users WHERE id = ? AND deletedAt IS NULL', [req.user!.id]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (!user) {
-      return res.status(404).json({ error: 'Profile not found' });
-    }
-
-    // Regex validation for email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(user.email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
+    if (!emailRegex.test(user.email)) return res.status(400).json({ error: 'Invalid email format' });
 
-    return res.json(user);
+    res.json(user);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch profile' });
@@ -56,25 +49,33 @@ router.get('/user/profile', async (req, res) => {
 
 /**
  * PUT /api/users/:id
- * Replace entire User object
+ * Replace entire user
  */
 router.put('/users/:id', async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
     const { id } = req.params;
+    const { username, email, password, role } = req.body;
 
-    await dbRun(
-      `UPDATE users 
-       SET username = ?, email = ?, password = ?, role = ?, updatedAt = CURRENT_TIMESTAMP 
-       WHERE id = ?`,
-      [username, email, password, role, id]
-    );
+    if (!username || !email || !password || !role) return res.status(400).json({ error: 'Missing required fields' });
+    if (!['ROLE_USER', 'ROLE_ADMIN'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
 
-    const updated = await dbGet(`SELECT * FROM users WHERE id = ?`, [id]);
-    res.json(updated);
+    const existingUser = await dbGet('SELECT id FROM users WHERE id = ? AND deletedAt IS NULL', [id]);
+    if (!existingUser) return res.status(404).json({ error: 'User not found' });
+
+    // Check for duplicates
+    const userWithUsername = await dbGet('SELECT id FROM users WHERE username = ? AND id != ? AND deletedAt IS NULL', [username, id]);
+    if (userWithUsername) return res.status(409).json({ error: 'Username already exists' });
+
+    const userWithEmail = await dbGet('SELECT id FROM users WHERE email = ? AND id != ? AND deletedAt IS NULL', [email, id]);
+    if (userWithEmail) return res.status(409).json({ error: 'Email already exists' });
+
+    await dbRun('UPDATE users SET username = ?, email = ?, password = ?, role = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [username, email, password, role, id]);
+    const updatedUser = await dbGet('SELECT id, username, email, role, createdAt, updatedAt FROM users WHERE id = ?', [id]);
+
+    res.json({ message: 'User replaced successfully', user: updatedUser });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'User update failed' });
+    res.status(500).json({ error: 'Failed to replace user' });
   }
 });
 
