@@ -3,16 +3,21 @@ import { Request, Response, NextFunction } from 'express';
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; username: string; email: string; role: string };
+      user?: {
+        id: number;
+        username: string;
+        email: string;
+        role: string;
+      };
     }
   }
 }
 
 export const authenticateUser = (req: Request, res: Response, next: NextFunction) => {
-  const userHeader = req.headers['x-user'];
-  if (!userHeader) return next(); // allow unauthenticated routes to handle 401 internally
-
   try {
+    const userHeader = req.headers['x-user'];
+    if (!userHeader) return res.status(401).json({ error: 'Unauthorized: No user provided' });
+
     const user = typeof userHeader === 'string' ? JSON.parse(userHeader) : userHeader;
     req.user = user;
     next();
